@@ -1,152 +1,313 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+const frame = document.getElementById("frame");
+const urlBar = document.getElementById("url");
+const loading = document.getElementById("loading");
+const tabsDiv = document.getElementById("tabs");
 
-<title>ANDROMEDA</title>
+let tabs = [];
+let activeTab = 0;
 
-<style>
-*{
-    box-sizing:border-box;
+// -------------------- TAB SYSTEM --------------------
+
+function createTab(url = "about:home") {
+    return {
+        url,
+        history: [url],
+        index: 0
+    };
 }
 
-body{
-    margin:0;
-    overflow:hidden;
-    font-family:Arial,sans-serif;
-    background:#030712;
+function newTab() {
+    tabs.push(createTab());
+    activeTab = tabs.length - 1;
+    renderTabs();
+    load();
 }
 
-/* HOME */
+function closeTab(i) {
+    if (tabs.length === 1) return;
 
-#home{
-    position:fixed;
+    tabs.splice(i, 1);
 
-    inset:0;
-
-    display:flex;
-    flex-direction:column;
-
-    align-items:center;
-    justify-content:center;
-
-    overflow:hidden;
-
-    background:#030712;
-}
-
-/* MOVING GALAXY */
-
-#galaxy{
-    position:absolute;
-
-    inset:-10%;
-
-    background:
-    linear-gradient(
-        rgba(3,7,18,0.78),
-        rgba(3,7,18,0.88)
-    ),
-
-    url("https://static.independent.co.uk/s3fs-public/thumbnails/image/2018/10/05/18/Centaurus-A.jpg");
-
-    background-size:cover;
-    background-position:center;
-
-    filter:brightness(0.7);
-
-    animation: galaxyMove 10s ease-in-out infinite alternate;
-}
-
-/* FAST GALAXY MOVEMENT */
-
-@keyframes galaxyMove{
-
-    0%{
-        transform:scale(1) translate(0px,0px) rotate(0deg);
+    if (activeTab >= tabs.length) {
+        activeTab = tabs.length - 1;
     }
 
-    100%{
-        transform:scale(1.12) translate(-40px,-20px) rotate(2deg);
+    renderTabs();
+    load();
+}
+
+function switchTab(i) {
+    activeTab = i;
+    renderTabs();
+    load();
+}
+
+// -------------------- NAV HELPERS --------------------
+
+function openExternal(url) {
+    window.open(url, "_blank");
+}
+
+function openInternal(page) {
+    urlBar.value = page;
+    go(page);
+}
+
+// -------------------- URL / SEARCH --------------------
+
+function parse(input) {
+    input = input.trim();
+
+    if (input.startsWith("http://") || input.startsWith("https://")) {
+        return input;
     }
+
+    if (input.includes(".") && !input.includes(" ")) {
+        return "https://" + input;
+    }
+
+    return "https://duckduckgo.com/?q=" + encodeURIComponent(input);
 }
 
-/* CONTENT */
+function go(inputOverride = null) {
+    const input = inputOverride || urlBar.value;
+    const url = parse(input);
 
-#content{
-    position:relative;
-    z-index:2;
+    const tab = tabs[activeTab];
 
-    display:flex;
-    flex-direction:column;
+    tab.history = tab.history.slice(0, tab.index + 1);
+    tab.history.push(url);
+    tab.index++;
 
-    align-items:center;
+    tab.url = url;
+
+    load();
 }
 
-/* LOGO */
+// -------------------- LOAD SYSTEM --------------------
 
-#logo{
-    font-size:64px;
+function load() {
+    const tab = tabs[activeTab];
 
-    letter-spacing:6px;
+    const home = document.getElementById("home");
+    if (home) home.remove();
 
-    color:#e9d5ff;
+    frame.style.display = "block";
+    urlBar.value = tab.url;
 
-    text-shadow:
-        0 0 10px #a855f7,
-        0 0 25px #7c4dff,
-        0 0 45px rgba(124,77,255,0.4);
+    // ---------------- HOME ----------------
+    if (tab.url === "about:home") {
+        frame.style.display = "none";
+        renderHome();
+        renderTabs();
+        return;
+    }
 
-    margin-bottom:24px;
+    // ---------------- SETTINGS ----------------
+    if (tab.url === "about:settings") {
+        frame.style.display = "none";
+        renderSettings();
+        renderTabs();
+        return;
+    }
+
+    // ---------------- PROXY ----------------
+    loading.style.width = "20%";
+
+    frame.src = "/proxy?url=" + encodeURIComponent(tab.url);
+
+    setTimeout(() => {
+        loading.style.width = "100%";
+        setTimeout(() => loading.style.width = "0%", 200);
+    }, 250);
+
+    renderTabs();
 }
 
-/* SEARCH */
+// -------------------- HOME --------------------
 
-#search{
-    width:min(700px,75vw);
+function renderHome() {
+    let home = document.getElementById("home");
 
-    padding:18px;
+    if (!home) {
+        home = document.createElement("div");
+        home.id = "home";
+        document.body.appendChild(home);
+    }
 
-    border:none;
-    outline:none;
+    home.style = `
+        position:absolute;
+        top:0;
+        left:0;
+        width:100%;
+        height:100%;
+        background:
+radial-gradient(circle at top,
+rgba(124,77,255,0.15),
+#030712 45%);
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        z-index:9999;
+    `;
 
-    border-radius:18px;
+    home.innerHTML = `
+        <h1 style="
+            font-size:42px;
+            color:#d0a6ff;
+            text-shadow:0 0 10px #7c4dff, 0 0 25px #5a189a;
+            letter-spacing:3px;
+            margin-bottom:20px;
+        ">ANDROMEDA</h1>
 
-    background:rgba(16,24,38,0.82);
+        <input id="homeSearch" placeholder="Search or enter URL"
+            style="
+                width:55%;
+                padding:14px;
+                border-radius:12px;
+                border:none;
+                outline:none;
+                background:#13294b;
+                color:white;
+                font-size:16px;
+            "
+        />
 
-    color:white;
+        <div style="display:flex; gap:10px; margin-top:18px;">
+            <div onclick="window.__ANDROMEDA_SEARCH__('youtube.com')"
+                style="padding:10px 14px; background:#13294b; border-radius:10px; cursor:pointer;">
+                YouTube
+            </div>
 
-    font-size:16px;
+            <div onclick="window.__ANDROMEDA_SEARCH__('github.com')"
+                style="padding:10px 14px; background:#13294b; border-radius:10px; cursor:pointer;">
+                GitHub
+            </div>
 
-    backdrop-filter:blur(10px);
-
-    box-shadow:
-        0 0 25px rgba(124,77,255,0.15);
-}
-</style>
-</head>
-
-<body>
-
-<div id="home">
-
-    <div id="galaxy"></div>
-
-    <div id="content">
-
-        <div id="logo">
-            ANDROMEDA
+            <div onclick="window.__ANDROMEDA_SEARCH__('duckduckgo.com')"
+                style="padding:10px 14px; background:#13294b; border-radius:10px; cursor:pointer;">
+                DuckDuckGo
+            </div>
         </div>
+    `;
 
-        <input
-            id="search"
-            placeholder="Search or enter URL"
-        >
+    document.getElementById("homeSearch").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            window.__ANDROMEDA_SEARCH__(e.target.value);
+        }
+    });
+}
 
-    </div>
+// -------------------- SETTINGS --------------------
 
-</div>
+function renderSettings() {
+    let page = document.getElementById("home");
 
-</body>
-</html>
+    if (!page) {
+        page = document.createElement("div");
+        page.id = "home";
+        document.body.appendChild(page);
+    }
+
+    page.style = `
+        position:absolute;
+        top:0;
+        left:0;
+        width:100%;
+        height:100%;
+        background:#0b1b3a;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        z-index:9999;
+        color:white;
+    `;
+
+    page.innerHTML = `
+        <h1 style="color:#d0a6ff; text-shadow:0 0 10px #a855f7;">
+            Settings
+        </h1>
+
+        <button onclick="window.__ANDROMEDA_SEARCH__('about:home')"
+            style="
+                margin-top:10px;
+                padding:10px 14px;
+                background:#13294b;
+                border:none;
+                color:white;
+                border-radius:10px;
+                cursor:pointer;
+            ">
+            Back Home
+        </button>
+    `;
+}
+
+// -------------------- NAV --------------------
+
+function back() {
+    const tab = tabs[activeTab];
+
+    if (tab.index > 0) {
+        tab.index--;
+        tab.url = tab.history[tab.index];
+        load();
+    }
+}
+
+function forward() {
+    const tab = tabs[activeTab];
+
+    if (tab.index < tab.history.length - 1) {
+        tab.index++;
+        tab.url = tab.history[tab.index];
+        load();
+    }
+}
+
+function refresh() {
+    load();
+}
+
+// -------------------- TABS UI --------------------
+
+function renderTabs() {
+    tabsDiv.innerHTML = "";
+
+    tabs.forEach((tab, i) => {
+        const el = document.createElement("div");
+        el.className = "tab" + (i === activeTab ? " active" : "");
+
+        el.innerHTML = `Tab ${i + 1} <span>✕</span>`;
+
+        el.onclick = (e) => {
+            if (e.target.tagName === "SPAN") {
+                closeTab(i);
+            } else {
+                switchTab(i);
+            }
+        };
+
+        tabsDiv.appendChild(el);
+    });
+}
+
+// -------------------- ENTER --------------------
+
+urlBar.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") go();
+});
+
+// -------------------- HOMEPAGE BRIDGE --------------------
+
+window.__ANDROMEDA_SEARCH__ = function(value) {
+    if (!value) return;
+    urlBar.value = value;
+    go();
+};
+
+// -------------------- START --------------------
+
+newTab();
